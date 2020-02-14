@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <style type="text/css">
+        html {
+          overflow: hidden;
+        }
+        canvas{
+          text-align:center;
+          display:flex;
+        }
+      </style>
+  </head>
+  <script>
+    window.addEventListener('DOMContentLoaded', (event) => {
+      var canvas; //handle for info about our display area
+      var canvasCtx; //underlying graphic info
+
+      var ballX = 50;
+      var ballY = 50;
+
+      var ballSpeedX = 10;
+      var ballSpeedY = 4;
+
+      var player1Score = 0;
+      var player2Score = 0;
+
+      var paddle1Y = 250;
+      var paddle2Y = 250;
+
+      var showWinScreen = true;
+
+      const PADDLE_HEIGHT = 200;
+      const PADDLE_THICKNESS = 20;
+      const WINNING_SCORE = 3;
+
+      function calculateMousePosition(evt) {
+        // bounding the black area on our rect
+        var rect = canvas.getBoundingClientRect();
+        var root = document.documentElement;
+        var mouseX = evt.clientX - rect.left - root.scrollLeft;
+        var mouseY = evt.clientY - rect.top - root.scrollTop;
+        return {
+          x: mouseX,
+          y: mouseY
+        };
+      }
+
+      function handleMouseClick(evt) {
+        if (showWinScreen) {
+          player1Score = 0;
+          player2Score = 0;
+          showWinScreen = false;
+        }
+      }
+
+      function handleTouch(evt) {
+        if (evt.touches.length > 1 || (evt.type == "touchend" && evt.touches.length > 0))
+          return;
+
+        var newEvt = document.createEvent("MouseEvents");
+        var type = "mousemove";
+        var touch = evt.changedTouches[0];
+
+        newEvt.initMouseEvent(type, true, true, window, 0,
+          touch.screenX, touch.screenY, touch.clientX, touch.clientY,
+          evt.ctrlKey, evt.altKey, evt.shiftKey, evt.metaKey, 0, null);
+        evt.currentTarget.dispatchEvent(newEvt);
+      }
+
+      window.onload = function() {
+        canvas = document.getElementById('gameCanvas');
+        canvasCtx = canvas.getContext('2d');
+        canvasCtx.font = 'bold 48px arial';
+        var framesPerSecond = 30;
+
+        setInterval(function() {
+          moveEverything();
+          drawEverything();
+        }, 1000 / framesPerSecond);
+
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('mousedown', handleMouseClick);
+        canvas.addEventListener('mousemove', function(evt) {
+          var mousePos = calculateMousePosition(evt);
+          paddle1Y = mousePos.y - (PADDLE_HEIGHT / 2);
+        });
+
+      };
+
+
+
+      function ballReset() {
+        if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
+          showWinScreen = true;
+        }
+        ballSpeedX = -ballSpeedX;
+        ballX = canvas.width / 2;
+        ballY = canvas.height / 2;
+      }
+
+      function computerMovement() {
+        var paddle2YCenter = paddle2Y + (PADDLE_HEIGHT / 2);
+        if (paddle2YCenter < ballY - 35) {
+          paddle2Y += 6;
+        } else if (paddle2YCenter > ballY + 35) {
+          paddle2Y -= 6;
+        }
+      }
+
+      function moveEverything() {
+        if (showWinScreen) {
+          return;
+        }
+        computerMovement();
+
+        ballX += ballSpeedX;
+        ballY += ballSpeedY;
+
+        if (ballX < 0) {
+          if (ballY > paddle1Y &&
+            ballY < paddle1Y + PADDLE_HEIGHT) {
+            ballSpeedX = -ballSpeedX;
+
+            var deltaY = ballY - (paddle1Y + PADDLE_HEIGHT / 2);
+            ballSpeedY = deltaY * 0.35;
+          } else {
+            player2Score++; //MUST BE BEFORE BALL RESET
+            ballReset();
+          }
+        }
+        if (ballX > canvas.width) {
+          if (ballY > paddle2Y &&
+            ballY < paddle2Y + PADDLE_HEIGHT) {
+            ballSpeedX = -ballSpeedX;
+
+            var deltaY = ballY - (paddle2Y + PADDLE_HEIGHT / 2);
+            ballSpeedY = deltaY * 0.35;
+          } else {
+            player1Score++; //MUST BE BEFORE BALL RESET
+            ballReset();
+          }
+        }
+        if (ballY < 0) {
+          ballSpeedY = -ballSpeedY;
+        }
+        if (ballY > canvas.height) {
+          ballSpeedY = -ballSpeedY;
+        }
+      }
+
+      function drawNet() {
+        //for loop
+        //start variable i at 0
+        //count upto 600 at intervals of 40 (jumping 40px at a time)
+        //
+        for (var i = 0; i < canvas.height; i += 40) {
+          colorRect(canvas.width / 2 - 1, i, 2, 20, 'white');
+        }
+      }
+
+      function drawEverything() {
+        // Tennis board background
+        colorRect(0, 0, canvas.width, canvas.height, "BLACK");
+
+        if (showWinScreen) {
+          canvasCtx.fillStyle = 'white';
+          if (player1Score >= WINNING_SCORE) {
+            canvasCtx.fillText('Left player Won!', 350, 200);
+          } else if (player2Score >= WINNING_SCORE) {
+            canvasCtx.fillText('Right player Won!', 350, 200);
+          }
+          canvasCtx.fillText('Click to continue', 350, 500);
+          return;
+        }
+        drawNet();
+        //right player/computer paddle
+        colorRect(0, paddle1Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'white');
+        //Left player paddle
+        colorRect(canvas.width - PADDLE_THICKNESS, paddle2Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'white');
+        //Tennis ball
+        colorCircle(ballX, ballY, 10, 'white');
+        canvasCtx.fillText(player1Score, 100, 100);
+        canvasCtx.fillText(player2Score, canvas.width - 100, 100);
+
+      }
+
+      function colorCircle(centerX, centerY, radius, drawColor) {
+        canvasCtx.fillStyle = drawColor;
+        canvasCtx.beginPath();
+        canvasCtx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+        canvasCtx.fill();
+      }
+
+      function colorRect(leftX, topY, width, height, drawColor) {
+        canvasCtx.fillStyle = drawColor;
+        canvasCtx.fillRect(leftX, topY, width, height);
+      }
+    });
+  </script>
+  <body>
+    <canvas id="gameCanvas" width="980" height="1280"></canvas>
+  </body>
+</html>
